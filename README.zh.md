@@ -8,6 +8,8 @@
 
 ## 它做什么
 
+![设置页](docs/settings-section.png)
+
 DSH 的「工作中」指示器是一条会动的小鲸鱼尾巴（`@deepseek-ai/dsh-client-ui-chat` 里的 `RunningWhaleTail`）。这个插件让你在**设置 → 思考动效**里换成三种之一：
 
 | 选项 | 效果 |

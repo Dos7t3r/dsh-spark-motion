@@ -8,6 +8,8 @@
 
 ## What it does
 
+![The settings section](docs/settings-section.png)
+
 DeepSeek Harness draws its "working" indicator as a small animated whale tail (`RunningWhaleTail` in `@deepseek-ai/dsh-client-ui-chat`). This plugin lets you replace it, from **Settings → 思考动效**, with one of three options:
 
 | Option | What you get |
