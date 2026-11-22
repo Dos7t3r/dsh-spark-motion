@@ -1,0 +1,5 @@
+# dsh-spark-motion bundle patch: insert this plugin's client row into the web roster.
+# The row id is what the profile's own patch layer targets for config overrides.
+- insert:
+    - id: ui-spark-motion
+      name: 'dsh-spark-motion'
