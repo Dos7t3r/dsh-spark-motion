@@ -18,6 +18,10 @@ DeepSeek Harness draws its "working" indicator as a small animated whale tail (`
 | **Claude classic spark** | The 9-frame starburst that Claude Desktop used before Sept 2026 — 90ms per frame, vector, crisp at any size. |
 | **Claude current dots** | The animation Claude Desktop ships today — 110 frames at 30fps. |
 
+Below that is an **icon size** control (16 / 20 / 24 / 28 px). DSH hard-sizes the indicator at
+`calc(14px + font delta)`, which reads small next to the status text, so the Claude marks default to
+**20px** and can be resized.
+
 The settings panel also shows the repository link and the installed version, so you can tell at a glance which build you are running. Links open through `window.open(..., "noopener,noreferrer")` — the same route DSH uses for external links — so the app itself never navigates away.
 
 Changes apply instantly, are remembered across restarts (`localStorage`), and cost **~46KB of CSS** for both animations combined — no extra network requests, no React re-renders, no polling.

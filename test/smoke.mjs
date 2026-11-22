@@ -173,6 +173,17 @@ assert.equal(store.get('dsh-spark-motion:kind'), 'classic');
 exports.setKind('nonsense');
 assert.equal(attributes.get('data-dsh-spark-kind'), 'dsh', 'unknown kinds fall back to dsh');
 
+// ---- icon size -------------------------------------------------------------
+assert.equal(attributes.get('data-dsh-spark-size'), 'm', 'boots on the default size');
+exports.setSize('l');
+assert.equal(attributes.get('data-dsh-spark-size'), 'l');
+assert.equal(store.get('dsh-spark-motion:size'), 'l', 'size must persist');
+exports.setSize('bogus');
+assert.equal(attributes.get('data-dsh-spark-size'), 'm', 'unknown sizes fall back to default');
+
+assert.match(css, /html\[data-dsh-spark-size="l"\]\{--dsh-spark-box:24px\}/, 'size token for l');
+assert.match(css, /min-height:var\(--dsh-spark-box,20px\)!important/, 'box override present');
+
 // ---- version comparison ----------------------------------------------------
 assert.equal(exports.VERSION, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version,
   'bundle version must match package.json');

@@ -116,6 +116,23 @@ const perKind = kinds
 // painting into a display:none element does nothing. While one of our kinds is
 // active we re-open that slot and retire the skin's imitation. For kind="dsh" we
 // stay out of the way entirely, so the skin still wins.
+// Icon box sizing. DSH draws the indicator at calc(14px + font delta), which reads
+// small beside the status text; these let the mark grow without touching anything
+// else. Applied only for our kinds, so "DeepSeek original" keeps DSH's own size.
+const SPARK_SIZES = [
+  ['s', 16],
+  ['m', 20],
+  ['l', 24],
+  ['xl', 28],
+];
+const sizeRules = `${SPARK_SIZES.map(([k, px]) => `html[data-dsh-spark-size="${k}"]{--dsh-spark-box:${px}px}`).join('\n')}
+${kinds.map((k) => `html[data-dsh-spark-kind="${k}"] [class*="runningIcon"]`).join(',\n')}{
+  width:var(--dsh-spark-box,20px)!important;
+  height:var(--dsh-spark-box,20px)!important;
+  min-width:var(--dsh-spark-box,20px)!important;
+  min-height:var(--dsh-spark-box,20px)!important;
+}`;
+
 const claudeStyleCompat = `@media (prefers-reduced-motion: no-preference){
 ${kinds
   .map(
@@ -151,6 +168,8 @@ ${motion.join('\n')}
 ${perKind}
   }
 }
+
+${sizeRules}
 
 ${claudeStyleCompat}
 

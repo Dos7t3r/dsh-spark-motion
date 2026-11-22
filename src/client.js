@@ -4,7 +4,19 @@ const ID = "dsh-spark-motion";
 const ATTR = "data-dsh-spark-kind";
 const STYLE_ID = ID + "-style";
 const STORAGE_KEY = "dsh-spark-motion:kind";
+const SIZE_ATTR = "data-dsh-spark-size";
+const SIZE_KEY = "dsh-spark-motion:size";
 const KINDS = ["dsh", "classic", "new"];
+
+// DSH sizes the running icon at calc(14px + font delta); 14px reads small next to
+// the status text, so the Claude marks let you pick their box independently.
+const SIZES = [
+  { key: "s", px: 16, zh: "小", en: "Small" },
+  { key: "m", px: 20, zh: "标准", en: "Default" },
+  { key: "l", px: 24, zh: "大", en: "Large" },
+  { key: "xl", px: 28, zh: "特大", en: "XL" },
+];
+const DEFAULT_SIZE = "m";
 
 const REPO_URL = "https://github.com/Dos7t3r/dsh-spark-motion";
 const REPO_API = "https://api.github.com/repos/Dos7t3r/dsh-spark-motion";
@@ -17,10 +29,20 @@ const CSS = __CSS__;
 const e = React.createElement;
 
 let current = "dsh";
+let currentSize = DEFAULT_SIZE;
 const listeners = new Set();
 
 function normalize(kind) {
   return KINDS.indexOf(kind) === -1 ? "dsh" : kind;
+}
+
+function normalizeSize(size) {
+  return SIZES.some(function (entry) { return entry.key === size; }) ? size : DEFAULT_SIZE;
+}
+
+function sizePx(size) {
+  const found = SIZES.filter(function (entry) { return entry.key === size; })[0];
+  return found ? found.px : 20;
 }
 
 function readStored() {
@@ -39,10 +61,42 @@ function persist(kind) {
   }
 }
 
+function readStoredSize() {
+  try {
+    return normalizeSize(window.localStorage.getItem(SIZE_KEY));
+  } catch {
+    return DEFAULT_SIZE;
+  }
+}
+
+function persistSize(size) {
+  try {
+    window.localStorage.setItem(SIZE_KEY, size);
+  } catch {
+    /* non-fatal */
+  }
+}
+
 function paint(kind) {
   current = kind;
   const root = document.documentElement;
   if (root) root.setAttribute(ATTR, kind);
+}
+
+function paintSize(size) {
+  currentSize = size;
+  const root = document.documentElement;
+  if (root) root.setAttribute(SIZE_ATTR, size);
+}
+
+function notify() {
+  listeners.forEach(function (fn) {
+    try {
+      fn(current, currentSize);
+    } catch {
+      /* a broken subscriber must not break the toggle */
+    }
+  });
 }
 
 function setKind(kind) {
@@ -50,13 +104,15 @@ function setKind(kind) {
   if (next === current) return;
   paint(next);
   persist(next);
-  listeners.forEach((fn) => {
-    try {
-      fn(next);
-    } catch {
-      /* a broken subscriber must not break the toggle */
-    }
-  });
+  notify();
+}
+
+function setSize(size) {
+  const next = normalizeSize(size);
+  if (next === currentSize) return;
+  paintSize(next);
+  persistSize(next);
+  notify();
 }
 
 function ensureStyle() {
@@ -186,6 +242,7 @@ function Preview(props) {
 
 function SparkSection() {
   const [kind, setLocal] = React.useState(current);
+  const [size, setLocalSize] = React.useState(currentSize);
   const [update, setUpdate] = React.useState(function () {
     const cached = readCachedLatest();
     return cached ? { version: cached.version, at: cached.at, newer: isNewer(cached.version, VERSION) } : null;
@@ -194,8 +251,9 @@ function SparkSection() {
 
   React.useEffect(
     function () {
-      const fn = function (next) {
-        setLocal(next);
+      const fn = function () {
+        setLocal(current);
+        setLocalSize(currentSize);
       };
       listeners.add(fn);
       return function () {
@@ -280,6 +338,33 @@ function SparkSection() {
       }),
     ),
     e(
+      "div",
+      { className: "dshspark-sizerow" },
+      e("span", { className: "dshspark-sizelabel" }, "图标尺寸"),
+      e(
+        "div",
+        { className: "dshspark-sizes", role: "radiogroup", "aria-label": "图标尺寸" },
+        SIZES.map(function (entry) {
+          const active = entry.key === size;
+          return e(
+            "button",
+            {
+              key: entry.key,
+              type: "button",
+              role: "radio",
+              "aria-checked": active,
+              className: "dshspark-size" + (active ? " is-active" : ""),
+              onClick: function () {
+                setSize(entry.key);
+              },
+            },
+            entry.zh,
+          );
+        }),
+      ),
+      e("span", { className: "dshspark-sizeval" }, sizePx(size) + "px"),
+    ),
+    e(
       "p",
       { className: "dshspark-note" },
       "立即生效、随客户端保存。Claude 两版的素材取自 Claude Desktop 内的动画序列帧，著作权归 Anthropic；详见本插件的 NOTICE。",
@@ -341,6 +426,7 @@ function SparkSection() {
 function apply(ctx) {
   ensureStyle();
   paint(readStored());
+  paintSize(readStoredSize());
 
   ctx.slots.inject("settings.section", function () {
     return ctx.slots.register(
@@ -360,6 +446,8 @@ function apply(ctx) {
 exports.apply = apply;
 exports.inject = ["slots"];
 exports.setKind = setKind;
+exports.setSize = setSize;
+exports.SIZES = SIZES;
 exports.KINDS = KINDS;
 exports.VERSION = VERSION;
 exports.REPO_URL = REPO_URL;
