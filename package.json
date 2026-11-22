@@ -1,6 +1,6 @@
 {
   "name": "dsh-spark-motion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Choose the thinking/working indicator animation in DeepSeek Harness: the DeepSeek whale tail, Anthropic's classic Claude spark, or Claude's current dots.",
   "type": "module",
   "main": "lib/index.js",

@@ -6,6 +6,9 @@ const STYLE_ID = ID + "-style";
 const STORAGE_KEY = "dsh-spark-motion:kind";
 const KINDS = ["dsh", "classic", "new"];
 
+const REPO_URL = "https://github.com/Dos7t3r/dsh-spark-motion";
+const VERSION = __VERSION__;
+
 const CSS = __CSS__;
 const e = React.createElement;
 
@@ -86,10 +89,12 @@ function TailGlyph() {
     "svg",
     { viewBox: "0 0 16 16", width: 16, height: 16, fill: "none", "aria-hidden": "true" },
     e("path", {
-      d: "M3.6 11.4C5.8 8.9 7.6 7.4 10.6 6.1M12.4 11.4C10.2 8.9 7.6 7.4 5.4 6.1",
+      // stem + two flukes: reads as a tail rather than a cross at 16px
+      d: "M8 14V9M8 9C6.6 7 5.2 6.2 3.4 5.8M8 9C9.4 7 10.8 6.2 12.6 5.8",
       stroke: "currentColor",
-      strokeWidth: 1.2,
+      strokeWidth: 1.3,
       strokeLinecap: "round",
+      strokeLinejoin: "round",
     }),
   );
 }
@@ -156,6 +161,27 @@ function SparkSection() {
       "p",
       { className: "dshspark-note" },
       "立即生效、随客户端保存。Claude 两版的素材取自 Claude Desktop 内的动画序列帧，著作权归 Anthropic；详见本插件的 NOTICE。",
+    ),
+    e(
+      "div",
+      { className: "dshspark-foot" },
+      e(
+        "a",
+        {
+          className: "dshspark-repo",
+          href: REPO_URL,
+          // Never let Electron navigate the app itself: hand the URL to the OS.
+          onClick: function (event) {
+            event.preventDefault();
+            if (typeof window.open === "function") {
+              window.open(REPO_URL, "_blank", "noopener,noreferrer");
+            }
+          },
+        },
+        e("span", { className: "dshspark-repo-label" }, "GitHub 仓库"),
+        e("span", { className: "dshspark-repo-url" }, "Dos7t3r/dsh-spark-motion"),
+      ),
+      e("span", { className: "dshspark-ver" }, "v" + VERSION),
     ),
   );
 }

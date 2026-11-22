@@ -84,6 +84,23 @@ assert.equal(typeof meta.label, 'function', 'section label must be lazy');
 assert.equal(meta.label(), '思考动效');
 assert.equal(typeof component, 'function', 'slot must receive a component');
 
+// ---- the rendered section must expose the repository link -----------------
+const REPO = 'https://github.com/Dos7t3r/dsh-spark-motion';
+const tree = component();
+const seen = [];
+(function walk(node) {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) return node.forEach(walk);
+  seen.push(node);
+  (node.children ?? (node.props && node.props.children) ?? []).forEach?.(walk);
+})(tree);
+const link = seen.find((n) => n.type === 'a' && n.props && n.props.href === REPO);
+assert.ok(link, 'settings section must render a link to the repository');
+assert.equal(typeof link.props.onClick, 'function', 'link must intercept the click');
+const flat = JSON.stringify(tree);
+assert.ok(flat.includes('Dos7t3r/dsh-spark-motion'), 'link label must show the repo slug');
+assert.ok(/v\d+\.\d+\.\d+/.test(flat), 'section must show the plugin version');
+
 // ---- stylesheet must actually target DSH's running indicator ---------------
 assert.match(css, /\[class\*="runningIcon"\]::before/, 'must paint over the running icon');
 assert.match(css, /runningWhaleAnimated/, 'must hide the shipped animated whale');

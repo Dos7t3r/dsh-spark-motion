@@ -135,7 +135,10 @@ ${perKind}
 ${read('src/section.css')}
 `;
 
-const body = read('src/client.js').replace('__CSS__', () => JSON.stringify(css));
+const pkg = JSON.parse(read('package.json'));
+const body = read('src/client.js')
+  .replace('__CSS__', () => JSON.stringify(css))
+  .replace('__VERSION__', () => JSON.stringify(pkg.version));
 
 const bundle = `window.__ModuleLoader__.load({
 	id: ${JSON.stringify(ID)},

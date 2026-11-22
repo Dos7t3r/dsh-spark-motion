@@ -16,6 +16,8 @@ DSH 的「工作中」指示器是一条会动的小鲸鱼尾巴（`@deepseek-ai
 | **Claude 经典星芒** | 2026 年 9 月之前 Claude Desktop 用的 9 帧星芒，90ms/帧，矢量，任意尺寸都清晰。 |
 | **Claude 新版散点** | Claude Desktop 现在这版，110 帧 30fps。 |
 
+设置页底部还会显示仓库地址和当前版本号，一眼就能看出装的是哪个构建。链接走 `window.open(..., "noopener,noreferrer")`（和 DSH 自己打开外链是同一条路径），所以不会把应用本身导航走。
+
 切换**立即生效**、重启后仍然记得（`localStorage`），两套动画一共只占 **~46KB CSS** —— 没有额外网络请求、不触发 React 重渲染、没有轮询。
 
 ## 原理
