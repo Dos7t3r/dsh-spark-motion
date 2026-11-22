@@ -46,6 +46,32 @@ mask-size: 100% 900%;              /* 9 帧 => 高度是 9 个图标高         
 
 *经典星芒全部 9 帧 + 散点每第 15 帧，全部由已发布的 CSS 渲染 —— 逐帧步进精确落在每一帧上。*
 
+## 与 `dsh-claude-style` 皮肤共存（0.3.0 修复）
+
+如果你同时装了 `dsh-claude-style` 且 `brand: claude`，那套皮肤会做两件事：
+
+```css
+body[data-dsh-claude-brand=claude] [data-dsh-claude-part~=running-icon] { display: none }   /* 藏掉 DSH 原生图标 */
+body[data-dsh-claude-brand=claude] .dsh-claude-chat-wait-loader { display: inline-flex }      /* 画它自己的四点轨道 */
+```
+
+而本插件正是往那个 `running-icon` 元素上画东西 —— 元素被 `display:none` 了，于是你选什么都看不到，只能看到皮肤仿的四点（它其实**不是** Anthropic 的素材，是皮肤自己用 CSS 做的）。0.3.0 起本插件会在选择经典/新版时**重新打开那个槽位**并**停用皮肤那套仿制品**：
+
+```css
+html[data-dsh-spark-kind="classic"] body[data-dsh-claude-style] [data-dsh-claude-part~="running-icon"] { display: inline-flex !important }
+html[data-dsh-spark-kind="classic"] body[data-dsh-claude-style] .dsh-claude-chat-wait-loader { display: none !important }
+```
+
+`kind="dsh"` 时完全不介入，皮肤照旧生效。
+
+## 版本检查
+
+设置页底部有「检查更新」：进页面时自动查一次（结果缓存 6 小时），也可以手动点。查到更新的版本会变成一个 `↑ vX.Y.Z` 胶囊，点开是 release 页面。
+
+数据源是 GitHub API（优先 `releases/latest`，没有 release 就退回 `tags` 取最大版本），全程带 `try/catch`，离线、限流、被墙都只是静默失败，不影响设置页。
+
+> **关于「自动更新」**：插件跑在浏览器的沙箱里，**没有文件系统权限**，没法自己替换 `node_modules` 里的包。所以这里是「检查 + 提示 + 一键打开更新说明」，真正的升级仍是一条命令（见上方安装步骤）。这是能力边界，不是没做。
+
 ## 安装
 
 它就是个标准 DSH bundle：一个 `dsh.client` 半 + 一个 `cordis.patch.yml` 行。

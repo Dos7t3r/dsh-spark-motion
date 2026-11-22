@@ -7,6 +7,10 @@ const STORAGE_KEY = "dsh-spark-motion:kind";
 const KINDS = ["dsh", "classic", "new"];
 
 const REPO_URL = "https://github.com/Dos7t3r/dsh-spark-motion";
+const REPO_API = "https://api.github.com/repos/Dos7t3r/dsh-spark-motion";
+const REPO_RELEASES = REPO_URL + "/releases";
+const LATEST_KEY = "dsh-spark-motion:latest";
+const UPDATE_TTL_MS = 6 * 60 * 60 * 1000;
 const VERSION = __VERSION__;
 
 const CSS = __CSS__;
@@ -65,6 +69,82 @@ function ensureStyle() {
   }
 }
 
+function parseVersion(value) {
+  const match = String(value || "").match(/(\d+)\.(\d+)\.(\d+)/);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+/** True when `a` is a strictly newer semver than `b`. */
+function isNewer(a, b) {
+  const left = parseVersion(a);
+  const right = parseVersion(b);
+  if (!left || !right) return false;
+  for (let i = 0; i < 3; i += 1) {
+    if (left[i] !== right[i]) return left[i] > right[i];
+  }
+  return false;
+}
+
+function readCachedLatest() {
+  try {
+    const raw = window.localStorage.getItem(LATEST_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed.version === "string" && typeof parsed.at === "number"
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedLatest(version) {
+  try {
+    window.localStorage.setItem(LATEST_KEY, JSON.stringify({ version: version, at: Date.now() }));
+  } catch {
+    /* non-fatal: we just re-check next time */
+  }
+}
+
+/**
+ * Ask GitHub for the newest published version. Releases win; tags are the fallback
+ * for repos that only tag. Never throws — a failed check must not break settings.
+ */
+async function fetchLatestVersion() {
+  const headers = { Accept: "application/vnd.github+json" };
+  try {
+    const response = await fetch(REPO_API + "/releases/latest", { headers: headers });
+    if (response && response.ok) {
+      const body = await response.json();
+      if (body && typeof body.tag_name === "string") return body.tag_name;
+    }
+  } catch {
+    /* offline / rate limited / blocked — try tags */
+  }
+  try {
+    const response = await fetch(REPO_API + "/tags?per_page=10", { headers: headers });
+    if (!response || !response.ok) return null;
+    const body = await response.json();
+    if (!Array.isArray(body)) return null;
+    let best = null;
+    for (let i = 0; i < body.length; i += 1) {
+      const name = body[i] && body[i].name;
+      if (typeof name === "string" && (!best || isNewer(name, best))) best = name;
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
+/** Public for tests. Resolves to { version, newer } or { failed: true }. */
+async function checkForUpdates() {
+  const latest = await fetchLatestVersion();
+  if (!latest) return { failed: true, version: null, newer: false };
+  writeCachedLatest(latest);
+  return { failed: false, version: latest, newer: isNewer(latest, VERSION) };
+}
+
 const OPTIONS = [
   {
     kind: "dsh",
@@ -106,6 +186,11 @@ function Preview(props) {
 
 function SparkSection() {
   const [kind, setLocal] = React.useState(current);
+  const [update, setUpdate] = React.useState(function () {
+    const cached = readCachedLatest();
+    return cached ? { version: cached.version, at: cached.at, newer: isNewer(cached.version, VERSION) } : null;
+  });
+  const [checking, setChecking] = React.useState(false);
 
   React.useEffect(
     function () {
@@ -119,6 +204,43 @@ function SparkSection() {
     },
     [],
   );
+
+
+  function refresh() {
+    if (checking) return;
+    setChecking(true);
+    checkForUpdates().then(function (result) {
+      setChecking(false);
+      if (result && !result.failed) {
+        setUpdate({ version: result.version, at: Date.now(), newer: result.newer });
+      } else {
+        setUpdate(function (prev) {
+          return prev ? prev : { version: null, at: Date.now(), newer: false, failed: true };
+        });
+      }
+    });
+  }
+
+  React.useEffect(function () {
+    const cached = readCachedLatest();
+    const fresh = cached && Date.now() - cached.at < UPDATE_TTL_MS;
+    if (fresh) return;
+    let alive = true;
+    setChecking(true);
+    checkForUpdates().then(function (result) {
+      if (!alive) return;
+      setChecking(false);
+      if (result && !result.failed) {
+        setUpdate({ version: result.version, at: Date.now(), newer: result.newer });
+      }
+    });
+    return function () {
+      alive = false;
+    };
+  }, []);
+
+  const hasNewer = !!(update && update.newer);
+  const checkedRecently = !!(update && update.version);
 
   return e(
     "div",
@@ -181,7 +303,37 @@ function SparkSection() {
         e("span", { className: "dshspark-repo-label" }, "GitHub 仓库"),
         e("span", { className: "dshspark-repo-url" }, "Dos7t3r/dsh-spark-motion"),
       ),
-      e("span", { className: "dshspark-ver" }, "v" + VERSION),
+      e(
+        "span",
+        { className: "dshspark-trail" },
+        hasNewer
+          ? e(
+              "a",
+              {
+                className: "dshspark-update",
+                href: update.version ? REPO_RELEASES : REPO_URL,
+                title: "打开更新说明 / open release notes",
+                onClick: function (event) {
+                  event.preventDefault();
+                  if (typeof window.open === "function") {
+                    window.open(REPO_RELEASES, "_blank", "noopener,noreferrer");
+                  }
+                },
+              },
+              "↑ " + update.version,
+            )
+          : e(
+              "button",
+              {
+                type: "button",
+                className: "dshspark-check",
+                disabled: checking,
+                onClick: refresh,
+              },
+              checking ? "检查中…" : checkedRecently ? "已是最新 · 再查" : "检查更新",
+            ),
+        e("span", { className: "dshspark-ver" }, "v" + VERSION),
+      ),
     ),
   );
 }
@@ -209,3 +361,7 @@ exports.apply = apply;
 exports.inject = ["slots"];
 exports.setKind = setKind;
 exports.KINDS = KINDS;
+exports.VERSION = VERSION;
+exports.REPO_URL = REPO_URL;
+exports.checkForUpdates = checkForUpdates;
+exports.isNewer = isNewer;

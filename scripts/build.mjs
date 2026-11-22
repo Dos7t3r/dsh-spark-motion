@@ -33,30 +33,33 @@ const SOURCES = [
 ];
 
 const MIME = { '.svg': 'image/svg+xml', '.webp': 'image/webp' };
+const pct = (n) => n.toFixed(4).replace(/\.?0+$/, '');
 
 /** Frame-by-frame keyframes for one vertical strip. */
 function keyframes(name, frames) {
   const stops = [];
   for (let i = 0; i < frames; i += 1) {
-    const t = (i * 100) / frames;
-    const y = (i * 100) / (frames - 1);
-    stops.push(
-      `  ${t.toFixed(4).replace(/\.?0+$/, '')}%{-webkit-mask-position:0 ${y.toFixed(4).replace(/\.?0+$/, '')}%;mask-position:0 ${y.toFixed(4).replace(/\.?0+$/, '')}%}`,
-    );
+    const t = pct((i * 100) / frames);
+    const y = pct((i * 100) / (frames - 1));
+    stops.push(`  ${t}%{-webkit-mask-position:0 ${y}%;mask-position:0 ${y}%}`);
   }
   return `@keyframes ${name}{\n${stops.join('\n')}\n}`;
 }
 
 const motion = [];
 const vars = [];
+const durations = {};
+const framesOf = {};
 
 for (const [key, file, frames, frameMs] of SOURCES) {
-  const buf = readBuf(file);
-  // A standalone SVG used as a mask/background MUST carry xmlns and an intrinsic
-  // size; the shipped sprite strip has neither (it is only ever inlined into HTML).
+  const raw = readBuf(file);
+  const ext = path.extname(file);
+  // A standalone SVG used as a mask MUST carry xmlns and an intrinsic size; the
+  // shipped sprite strip has neither (it is only ever inlined into HTML), and as a
+  // CSS mask such an SVG silently renders nothing.
   const normalized = file.endsWith('.svg')
     ? Buffer.from(
-        buf
+        raw
           .toString('utf8')
           .replace(
             /^<svg[^>]*>/,
@@ -64,10 +67,12 @@ for (const [key, file, frames, frameMs] of SOURCES) {
           ),
         'utf8',
       )
-    : buf;
-  const ext = path.extname(file);
+    : raw;
+
   const uri = `data:${MIME[ext]};base64,${normalized.toString('base64')}`;
-  const duration = (frames * frameMs).toFixed(4).replace(/\.?0+$/, '');
+  const duration = pct(frames * frameMs);
+  durations[key] = duration;
+  framesOf[key] = frames;
 
   vars.push(`  --dsh-spark-${key}-mask: url("${uri}");`);
   motion.push(keyframes(`dshspark-${key}`, frames));
@@ -77,33 +82,48 @@ for (const [key, file, frames, frameMs] of SOURCES) {
       `-webkit-mask-size:100% ${frames * 100}%;mask-size:100% ${frames * 100}%;` +
       `animation:dshspark-${key} ${duration}ms steps(1,end) infinite}`,
   );
-  console.log(`  ${key.padEnd(8)} ${String(frames).padStart(3)} frames  ${frameMs.toFixed(2)}ms  ${(normalized.length / 1024).toFixed(1)}KB`);
+  console.log(
+    `  ${key.padEnd(8)} ${String(frames).padStart(3)} frames  ${frameMs.toFixed(2)}ms  ${(normalized.length / 1024).toFixed(1)}KB`,
+  );
 }
 
 const kinds = SOURCES.map(([k]) => k);
 
-// Hide the shipped whale only for the kinds we actually replace.
+// Hide the shipped whale layers only for the kinds we actually replace.
 const hideSelectors = kinds
   .flatMap((k) => [
     `html[data-dsh-spark-kind="${k}"] [class*="runningWhaleAnimated"]`,
     `html[data-dsh-spark-kind="${k}"] [class*="runningWhaleStill"]`,
   ])
-  .join(',\n  ');
+  .join(',\n    ');
 
 const beforeSelectors = kinds
   .map((k) => `html[data-dsh-spark-kind="${k}"] [class*="runningIcon"]::before`)
-  .join(',\n  ');
+  .join(',\n    ');
 
 const perKind = kinds
-  .map((k, i) => {
-    const [, , frames, frameMs] = SOURCES[i];
-    const duration = (frames * frameMs).toFixed(4).replace(/\.?0+$/, '');
-    return `html[data-dsh-spark-kind="${k}"] [class*="runningIcon"]::before{` +
+  .map(
+    (k) =>
+      `    html[data-dsh-spark-kind="${k}"] [class*="runningIcon"]::before{` +
       `-webkit-mask-image:var(--dsh-spark-${k}-mask);mask-image:var(--dsh-spark-${k}-mask);` +
-      `-webkit-mask-size:100% ${frames * 100}%;mask-size:100% ${frames * 100}%;` +
-      `animation:dshspark-${k} ${duration}ms steps(1,end) infinite}`;
-  })
+      `-webkit-mask-size:100% ${framesOf[k] * 100}%;mask-size:100% ${framesOf[k] * 100}%;` +
+      `animation:dshspark-${k} ${durations[k]}ms steps(1,end) infinite}`,
+  )
   .join('\n');
+
+// Coexistence with the dsh-claude-style skin. With brand=claude that skin hides
+// DSH's own running icon and draws its own four-dot orbit loader in the same row;
+// painting into a display:none element does nothing. While one of our kinds is
+// active we re-open that slot and retire the skin's imitation. For kind="dsh" we
+// stay out of the way entirely, so the skin still wins.
+const claudeStyleCompat = `@media (prefers-reduced-motion: no-preference){
+${kinds
+  .map(
+    (k) => `  html[data-dsh-spark-kind="${k}"] body[data-dsh-claude-style] [data-dsh-claude-part~="running-icon"]{display:inline-flex!important}
+  html[data-dsh-spark-kind="${k}"] body[data-dsh-claude-style] .dsh-claude-chat-wait-loader{display:none!important}`,
+  )
+  .join('\n')}
+}`;
 
 const css = `:root{
   --dsh-spark-color:${SPARK_COLOR};
@@ -131,6 +151,8 @@ ${motion.join('\n')}
 ${perKind}
   }
 }
+
+${claudeStyleCompat}
 
 ${read('src/section.css')}
 `;

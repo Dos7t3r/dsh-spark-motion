@@ -46,6 +46,41 @@ Two things worth knowing if you fork this:
 
 *All 9 classic frames plus every 15th dot frame, rendered from the shipped CSS — the mask stepping lands on exactly one frame per stop.*
 
+## Coexisting with the `dsh-claude-style` skin (fixed in 0.3.0)
+
+If you also run `dsh-claude-style` with `brand: claude`, that skin does two things:
+
+```css
+body[data-dsh-claude-brand=claude] [data-dsh-claude-part~=running-icon] { display: none }   /* hides DSH's own icon */
+body[data-dsh-claude-brand=claude] .dsh-claude-chat-wait-loader { display: inline-flex }      /* draws its own four-dot orbit */
+```
+
+This plugin paints on exactly that `running-icon` element, so with the skin active the element
+was `display:none` and no selection could ever show — you only saw the skin's imitation (which is
+**not** Anthropic's asset; the skin draws it in CSS). Since 0.3.0 the plugin re-opens the slot and
+retires the imitation while a Claude kind is selected:
+
+```css
+html[data-dsh-spark-kind="classic"] body[data-dsh-claude-style] [data-dsh-claude-part~="running-icon"] { display: inline-flex !important }
+html[data-dsh-spark-kind="classic"] body[data-dsh-claude-style] .dsh-claude-chat-wait-loader { display: none !important }
+```
+
+With `kind="dsh"` the plugin stays out of the way entirely and the skin wins.
+
+## Update check
+
+The footer has a **check for updates** control: it runs once on open (result cached for 6 hours) and
+can be triggered manually. When a newer version exists it turns into an `↑ vX.Y.Z` pill linking to
+the release page.
+
+It reads the GitHub API — `releases/latest` first, falling back to `tags` and picking the highest —
+and every path is wrapped so offline / rate-limited / blocked just fails silently instead of breaking
+the settings page.
+
+> **On "auto-update"**: the plugin runs inside the browser sandbox and has **no filesystem access**, so
+> it cannot replace its own files in `node_modules`. This is check + notify + jump to the release notes;
+> the actual upgrade stays one command (see Install above). That is a hard capability limit, not an omission.
+
 ## Install
 
 The plugin is a normal DSH bundle: a `dsh.client` half plus a `cordis.patch.yml` row.

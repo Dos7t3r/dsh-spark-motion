@@ -37,7 +37,14 @@ const window = {
   },
 };
 
-vm.runInNewContext(code, { window, document, console });
+let fetchImpl = async () => ({ ok: false, status: 404, json: async () => null });
+const fetchCalls = [];
+const fetchStub = (url, init) => {
+  fetchCalls.push(String(url));
+  return fetchImpl(String(url), init);
+};
+
+vm.runInNewContext(code, { window, document, console, fetch: fetchStub });
 
 const mod = window.__module;
 assert.ok(mod, 'bundle must call window.__ModuleLoader__.load');
@@ -165,6 +172,54 @@ assert.equal(store.get('dsh-spark-motion:kind'), 'classic');
 
 exports.setKind('nonsense');
 assert.equal(attributes.get('data-dsh-spark-kind'), 'dsh', 'unknown kinds fall back to dsh');
+
+// ---- version comparison ----------------------------------------------------
+assert.equal(exports.VERSION, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version,
+  'bundle version must match package.json');
+assert.equal(exports.isNewer('0.3.0', '0.2.0'), true);
+assert.equal(exports.isNewer('v0.10.0', 'v0.9.0'), true, 'numeric compare, not lexical');
+assert.equal(exports.isNewer('v0.9.0', 'v0.10.0'), false);
+assert.equal(exports.isNewer('v0.2.0', 'v0.2.0'), false);
+assert.equal(exports.isNewer('garbage', 'v0.2.0'), false);
+
+// ---- update check: releases path ------------------------------------------
+assert.match(code, /api\.github\.com\/repos\/Dos7t3r\/dsh-spark-motion/, 'bundle must target the repo API');
+assert.equal(typeof exports.checkForUpdates, 'function');
+
+fetchCalls.length = 0;
+fetchImpl = async (url) =>
+  url.endsWith('/releases/latest')
+    ? { ok: true, json: async () => ({ tag_name: 'v9.9.9' }) }
+    : { ok: false, json: async () => null };
+const happy = await exports.checkForUpdates();
+assert.equal(happy.failed, false);
+assert.equal(happy.version, 'v9.9.9');
+assert.equal(happy.newer, true, 'a much newer release must be reported');
+assert.equal(fetchCalls.length, 1, 'a working releases endpoint needs no tag fallback');
+
+// ---- update check: tag fallback picks the highest, not the first -----------
+fetchCalls.length = 0;
+fetchImpl = async (url) => {
+  if (url.endsWith('/releases/latest')) return { ok: false, json: async () => null };
+  return {
+    ok: true,
+    json: async () => [{ name: 'v0.2.0' }, { name: 'v0.10.0' }, { name: 'v0.3.1' }],
+  };
+};
+const fallback = await exports.checkForUpdates();
+assert.equal(fallback.version, 'v0.10.0', 'highest tag wins');
+assert.equal(fallback.newer, true);
+assert.equal(fetchCalls.length, 2, 'falls back to tags after a missing release');
+
+// ---- update check: total failure degrades quietly --------------------------
+fetchImpl = async () => {
+  throw new Error('offline');
+};
+const broken = await exports.checkForUpdates();
+// realm-safe: the object comes from the vm sandbox, so compare fields, not prototypes
+assert.equal(broken.failed, true, 'must never throw');
+assert.equal(broken.version, null);
+assert.equal(broken.newer, false);
 
 console.log('smoke: OK');
 console.log(`  stylesheet  ${(css.length / 1024).toFixed(1)}KB`);

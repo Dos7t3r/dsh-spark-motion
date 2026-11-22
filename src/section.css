@@ -154,3 +154,50 @@
   font-size: 11px;
   color: var(--dsw-alias-label-tertiary, #8a8a8a);
 }
+
+.dshspark-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dshspark-check {
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8a8a8a);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.dshspark-check:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  color: var(--dsw-alias-label-primary, inherit);
+}
+
+.dshspark-check:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.dshspark-update {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsh-spark-color, #d97757) 16%, transparent);
+  color: var(--dsh-spark-color, #d97757);
+  font-size: 11px;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.dshspark-update:hover {
+  background: color-mix(in srgb, var(--dsh-spark-color, #d97757) 26%, transparent);
+}
